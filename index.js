@@ -64,11 +64,54 @@ async function run() {
     });
     // NAME: User Collection
 
+    app.get("/users", async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/users/admin/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+
+      const result = { admin: user?.role === "admin" };
+      res.send(result);
+    });
+
     app.post("/users", async (req, res) => {
       const user = req.body;
+      const query = { email: user.email };
+      const existingUser = await userCollection.findOne(query);
+      if (existingUser) {
+        return res.send({ message: "user exists" });
+      }
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
+
+    app.patch("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const checkRole = await userCollection.findOne(filter);
+      if (checkRole.role === "admin") {
+        const filter = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: {
+            role: "Instructor",
+          },
+        };
+        const result = await userCollection.updateOne(filter, updateDoc);
+        return res.send(result);
+      }
+      const updateDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+      const result = await userCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
