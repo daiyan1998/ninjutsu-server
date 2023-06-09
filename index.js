@@ -25,17 +25,23 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
 
+    // NAME: Collections
+
     const inClassCollection = client.db("ninjutsuDb").collection("inClass");
+    const userCollection = client.db("ninjutsuDb").collection("users");
     const selectedClassCollection = client
       .db("ninjutsuDb")
       .collection("selectedClass");
+
     // NAME: All Data
+
     app.get("/instructors", async (req, res) => {
       const result = await inClassCollection.find().toArray();
       res.send(result);
     });
 
     // NAME: Selected Class Collection
+
     app.post("/selectedClasses", async (req, res) => {
       const selectedClass = req.body;
       const result = await selectedClassCollection.insertOne(selectedClass);
@@ -54,6 +60,13 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await selectedClassCollection.deleteOne(query);
+      res.send(result);
+    });
+    // NAME: User Collection
+
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const result = await userCollection.insertOne(user);
       res.send(result);
     });
     // Send a ping to confirm a successful connection
