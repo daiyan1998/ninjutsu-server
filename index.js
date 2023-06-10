@@ -32,6 +32,9 @@ async function run() {
     const selectedClassCollection = client
       .db("ninjutsuDb")
       .collection("selectedClass");
+    const instructorClassCollection = client
+      .db("ninjutsuDb")
+      .collection("instructorClass");
 
     // NAME: All Data
 
@@ -74,7 +77,8 @@ async function run() {
       const query = { email: email };
       const user = await userCollection.findOne(query);
 
-      const result = { admin: user?.role === "admin" };
+      const result = { role: user?.role };
+      console.log("result:", result);
       res.send(result);
     });
 
@@ -97,7 +101,7 @@ async function run() {
         const filter = { _id: new ObjectId(id) };
         const updateDoc = {
           $set: {
-            role: "Instructor",
+            role: "instructor",
           },
         };
         const result = await userCollection.updateOne(filter, updateDoc);
@@ -109,6 +113,18 @@ async function run() {
         },
       };
       const result = await userCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    // NAME: Instructors Class
+    app.post("/instructorClass", async (req, res) => {
+      const addClass = req.body;
+      const result = await instructorClassCollection.insertOne(addClass);
+      res.send(result);
+    });
+
+    app.get("/instructorClass", async (req, res) => {
+      const result = await instructorClassCollection.find().toArray();
       res.send(result);
     });
 
