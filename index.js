@@ -1,5 +1,5 @@
-const express = require("express");
 require("dotenv").config();
+const express = require("express");
 const cors = require("cors");
 const app = express();
 const port = process.env.PORT || 5000;
@@ -45,12 +45,6 @@ async function run() {
 
     // NAME: Selected Class Collection
 
-    app.post("/selectedClasses", async (req, res) => {
-      const selectedClass = req.body;
-      const result = await selectedClassCollection.insertOne(selectedClass);
-      res.send(result);
-    });
-
     app.get("/selectedClasses", async (req, res) => {
       const email = req.query.email;
       const query = { email: email };
@@ -59,6 +53,12 @@ async function run() {
       res.send(result);
     });
 
+    app.post("/selectedClasses", async (req, res) => {
+      const selectedClass = req.body;
+      const result = await selectedClassCollection.insertOne(selectedClass);
+      res.send(result);
+    });
+    // delete selected class via student
     app.delete("/selectedClasses/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -71,17 +71,16 @@ async function run() {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
-
+    // Get Role
     app.get("/users/admin/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const user = await userCollection.findOne(query);
 
       const result = { role: user?.role };
-      console.log("result:", result);
       res.send(result);
     });
-
+    // Add User
     app.post("/users", async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
@@ -92,7 +91,7 @@ async function run() {
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
-
+    // Update Role via Admin
     app.patch("/users/admin/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
@@ -117,14 +116,46 @@ async function run() {
     });
 
     // NAME: Instructors Class
+    app.get("/instructorClass", async (req, res) => {
+      const result = await instructorClassCollection.find().toArray();
+      res.send(result);
+    });
+    // update approved,deny,feedback
+    app.patch("/instructorClass/:id/:status", async (req, res) => {
+      const id = req.params.id;
+      const status = req.params.status;
+      const filter = { _id: new ObjectId(id) };
+      const checkStatus = await userCollection.findOne(filter);
+      if (status == "approved") {
+        const updateDoc = {
+          $set: {
+            status: "approved",
+          },
+        };
+        const result = await instructorClassCollection.updateOne(
+          filter,
+          updateDoc
+        );
+        return res.send(result);
+      }
+      if (status == "deny") {
+        const updateDoc = {
+          $set: {
+            status: "denied",
+          },
+        };
+        const result = await instructorClassCollection.updateOne(
+          filter,
+          updateDoc
+        );
+        console.log(result);
+        return res.send(result);
+      }
+    });
+    // add instructor class
     app.post("/instructorClass", async (req, res) => {
       const addClass = req.body;
       const result = await instructorClassCollection.insertOne(addClass);
-      res.send(result);
-    });
-
-    app.get("/instructorClass", async (req, res) => {
-      const result = await instructorClassCollection.find().toArray();
       res.send(result);
     });
 
