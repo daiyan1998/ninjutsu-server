@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const app = express();
-const stripr = require("stripe")(process.env.PAYMENT_SECRET_KEY);
+const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
 // middleware
@@ -48,13 +48,60 @@ async function run() {
     });
 
     // NAME: Selected Class Collection
-
+    // TODO: uncomment this
+    // app.get("/selectedClasses", async (req, res) => {
+    //   const email = req.query.email;
+    //   const query = { email: email };
+    //   console.log(req.query.email);
+    //   const result = await selectedClassCollection.find(query).toArray();
+    //   res.send(result);
+    // });
+    // TODO: test
     app.get("/selectedClasses", async (req, res) => {
       const email = req.query.email;
       const query = { email: email };
-      console.log(req.query.email);
-      const result = await selectedClassCollection.find(query).toArray();
-      res.send(result);
+      const pipeline = [
+        {
+          $match: query,
+        },
+        {
+          $group: {
+            _id: null,
+            totalPrice: { $sum: "$price" },
+            classes: { $push: "$$ROOT" },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            totalPrice: 1,
+            classes: 1,
+          },
+        },
+      ];
+      try {
+        const result = await selectedClassCollection
+          .aggregate(pipeline)
+          .toArray();
+        console.log(result);
+
+        if (result.length > 0) {
+          const totalPrice = result[0].totalPrice;
+          const classes = result[0].classes;
+
+          const response = {
+            totalPrice: totalPrice,
+            classes: classes,
+          };
+
+          res.send(response);
+        } else {
+          res.send({ message: "No selected classes found" });
+        }
+      } catch (error) {
+        console.error("Error retrieving selected classes:", error);
+        res.status(500).send("Error retrieving selected classes");
+      }
     });
 
     app.post("/selectedClasses", async (req, res) => {
@@ -170,10 +217,28 @@ async function run() {
     });
     // add instructor class
     app.post("/instructorClass", async (req, res) => {
-      const addClass = req.body;
+      const addClass = req.body.data;
       const result = await instructorClassCollection.insertOne(addClass);
       console.log(result);
       res.send(result);
+    });
+
+    // Send Feedback TODO:
+    app.patch("/instructorClass/:id", async (req, res) => {
+      const feedback = req.body.feedback;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          feedback: feedback,
+        },
+      };
+      const result = await instructorClassCollection.updateOne(
+        filter,
+        updateDoc
+      );
+      res.send(result);
+      console.log(result);
     });
 
     // NAME: Manage Users
@@ -186,6 +251,16 @@ async function run() {
     });
 
     // NAME: Payment
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = price * 100;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+      res.send({ clientSecret: paymentIntent.client_secret });
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
