@@ -35,11 +35,14 @@ async function run() {
     const instructorClassCollection = client
       .db("ninjutsuDb")
       .collection("instructorClass");
+    const instructorsCollection = client
+      .db("ninjutsuDb")
+      .collection("instructors");
 
     // NAME: All Data
 
     app.get("/instructors", async (req, res) => {
-      const result = await inClassCollection.find().toArray();
+      const result = await instructorsCollection.find().toArray();
       res.send(result);
     });
 
@@ -120,12 +123,18 @@ async function run() {
       const result = await instructorClassCollection.find().toArray();
       res.send(result);
     });
+    app.get("/instructorClass/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { instructorEmail: email };
+      const result = await instructorClassCollection.find(query).toArray();
+      res.send(result);
+    });
     // update approved,deny,feedback
     app.patch("/instructorClass/:id/:status", async (req, res) => {
       const id = req.params.id;
       const status = req.params.status;
       const filter = { _id: new ObjectId(id) };
-      const checkStatus = await userCollection.findOne(filter);
+      console.log(status);
       if (status == "approved") {
         const updateDoc = {
           $set: {
@@ -156,6 +165,16 @@ async function run() {
     app.post("/instructorClass", async (req, res) => {
       const addClass = req.body;
       const result = await instructorClassCollection.insertOne(addClass);
+      console.log(result);
+      res.send(result);
+    });
+
+    // NAME: Manage Users
+    app.get("/manageClass", async (req, res) => {
+      const filter = {
+        instructorEmail: { $exists: true },
+      };
+      const result = await instructorClassCollection.find(filter).toArray();
       res.send(result);
     });
 
