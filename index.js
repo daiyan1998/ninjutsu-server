@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const app = express();
+const stripr = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
 // middleware
@@ -120,7 +121,13 @@ async function run() {
 
     // NAME: Instructors Class
     app.get("/instructorClass", async (req, res) => {
-      const result = await instructorClassCollection.find().toArray();
+      const sortBy = {
+        classStudent: -1,
+      };
+      const result = await instructorClassCollection
+        .find()
+        .sort(sortBy)
+        .toArray();
       res.send(result);
     });
     app.get("/instructorClass/:email", async (req, res) => {
@@ -177,6 +184,8 @@ async function run() {
       const result = await instructorClassCollection.find(filter).toArray();
       res.send(result);
     });
+
+    // NAME: Payment
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
