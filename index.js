@@ -48,18 +48,11 @@ async function run() {
     });
 
     // NAME: Selected Class Collection
-    // TODO: uncomment this
-    // app.get("/selectedClasses", async (req, res) => {
-    //   const email = req.query.email;
-    //   const query = { email: email };
-    //   console.log(req.query.email);
-    //   const result = await selectedClassCollection.find(query).toArray();
-    //   res.send(result);
-    // });
-    // TODO: test
+
+    // TODO: show selected class collection
     app.get("/selectedClasses", async (req, res) => {
       const email = req.query.email;
-      const query = { email: email };
+      const query = { email: email, enrolled: false };
       const pipeline = [
         {
           $match: query,
@@ -83,7 +76,51 @@ async function run() {
         const result = await selectedClassCollection
           .aggregate(pipeline)
           .toArray();
-        console.log(result);
+
+        if (result.length > 0) {
+          const totalPrice = result[0].totalPrice;
+          const classes = result[0].classes;
+
+          const response = {
+            totalPrice: totalPrice,
+            classes: classes,
+          };
+
+          res.send(response);
+        } else {
+          res.send({ message: "No selected classes found" });
+        }
+      } catch (error) {
+        console.error("Error retrieving selected classes:", error);
+        res.status(500).send("Error retrieving selected classes");
+      }
+    });
+    app.get("/selectedClasses/enrolled", async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email, enrolled: true };
+      const pipeline = [
+        {
+          $match: query,
+        },
+        {
+          $group: {
+            _id: null,
+            totalPrice: { $sum: "$price" },
+            classes: { $push: "$$ROOT" },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            totalPrice: 1,
+            classes: 1,
+          },
+        },
+      ];
+      try {
+        const result = await selectedClassCollection
+          .aggregate(pipeline)
+          .toArray();
 
         if (result.length > 0) {
           const totalPrice = result[0].totalPrice;
@@ -106,6 +143,7 @@ async function run() {
 
     app.post("/selectedClasses", async (req, res) => {
       const selectedClass = req.body;
+      console.log(req.body);
       const result = await selectedClassCollection.insertOne(selectedClass);
       res.send(result);
     });
@@ -188,7 +226,6 @@ async function run() {
       const id = req.params.id;
       const status = req.params.status;
       const filter = { _id: new ObjectId(id) };
-      console.log(status);
       if (status == "approved") {
         const updateDoc = {
           $set: {
@@ -211,19 +248,19 @@ async function run() {
           filter,
           updateDoc
         );
-        console.log(result);
         return res.send(result);
       }
     });
     // add instructor class
+    // TODO:
     app.post("/instructorClass", async (req, res) => {
-      const addClass = req.body.data;
+      const addClass = req.body;
+      console.log("addClass:", addClass);
       const result = await instructorClassCollection.insertOne(addClass);
-      console.log(result);
       res.send(result);
     });
 
-    // Send Feedback TODO:
+    // Send Feedback
     app.patch("/instructorClass/:id", async (req, res) => {
       const feedback = req.body.feedback;
       const id = req.params.id;
@@ -238,7 +275,6 @@ async function run() {
         updateDoc
       );
       res.send(result);
-      console.log(result);
     });
 
     // NAME: Manage Users
@@ -252,8 +288,8 @@ async function run() {
 
     // NAME: Payment
     app.post("/create-payment-intent", async (req, res) => {
-      const { price } = req.body;
-      const amount = price * 100;
+      const { totalPrice } = req.body;
+      const amount = totalPrice * 100;
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
         currency: "usd",
@@ -262,6 +298,18 @@ async function run() {
       res.send({ clientSecret: paymentIntent.client_secret });
     });
 
+    // TODO: enroll
+    app.patch("/enroll", async (req, res) => {
+      const { id } = req.body;
+      console.log(id);
+      const filter = {
+        enrolled: false,
+        classId: { $in: id },
+      };
+      const update = { $set: { enrolled: true } };
+      const result = selectedClassCollection.updateMany(filter, update);
+      console.log(result);
+    });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
