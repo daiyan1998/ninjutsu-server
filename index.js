@@ -40,16 +40,27 @@ async function run() {
       .db("ninjutsuDb")
       .collection("instructors");
 
+    const paymentHistoryCollection = client
+      .db("ninjutsuDb")
+      .collection("paymentHistory");
+
     // NAME: All Data
 
     app.get("/instructors", async (req, res) => {
       const result = await instructorsCollection.find().toArray();
       res.send(result);
     });
+    // payment history
+    app.get("/payment-history", async (req, res) => {
+      const email = req.query.email;
+      const filter = { studentEmail: email };
+      const result = await paymentHistoryCollection.find(filter).toArray();
+      res.send(result);
+    });
 
     // NAME: Selected Class Collection
 
-    // TODO: show selected class collection
+    // show selected class collection
     app.get("/selectedClasses", async (req, res) => {
       const email = req.query.email;
       const query = { email: email, enrolled: false };
@@ -88,7 +99,7 @@ async function run() {
 
           res.send(response);
         } else {
-          res.send({ message: "No selected classes found" });
+          res.send(false);
         }
       } catch (error) {
         console.error("Error retrieving selected classes:", error);
@@ -252,7 +263,6 @@ async function run() {
       }
     });
     // add instructor class
-    // TODO:
     app.post("/instructorClass", async (req, res) => {
       const addClass = req.body;
       console.log("addClass:", addClass);
@@ -288,27 +298,52 @@ async function run() {
 
     // NAME: Payment
     app.post("/create-payment-intent", async (req, res) => {
-      const { totalPrice } = req.body;
-      const amount = totalPrice * 100;
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: amount,
-        currency: "usd",
-        payment_method_types: ["card"],
-      });
-      res.send({ clientSecret: paymentIntent.client_secret });
+      try {
+        const { totalPrice } = req.body;
+        console.log(totalPrice);
+        const amount = totalPrice * 100;
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amount,
+          currency: "usd",
+          payment_method_types: ["card"],
+        });
+        res.send({ clientSecret: paymentIntent.client_secret });
+      } catch (err) {
+        console.log(err);
+      }
     });
 
-    // TODO: enroll
+    // enroll
     app.patch("/enroll", async (req, res) => {
-      const { id } = req.body;
-      console.log(id);
+      const { id, paymentHisory } = req.body;
       const filter = {
         enrolled: false,
-        classId: { $in: id },
+        classId: { $in: id.map((item) => item) },
+        availableSeats: { $gt: 0 },
       };
       const update = { $set: { enrolled: true } };
-      const result = selectedClassCollection.updateMany(filter, update);
-      console.log(result);
+
+      const filterEnrolled = {
+        _id: { $in: id.map((item) => new ObjectId(item)) },
+      };
+      const enrollUpdate = {
+        $inc: {
+          enrolledStudents: 1,
+          availableSeats: -1,
+        },
+      };
+      try {
+        const history = await paymentHistoryCollection.insertOne(paymentHisory);
+        const updateResult = await instructorClassCollection.updateMany(
+          filterEnrolled,
+          enrollUpdate
+        );
+        const result = await selectedClassCollection.updateMany(filter, update);
+        console.log(result);
+      } catch (error) {
+        console.error("Error enrolling students:", error);
+        res.status(500).send("Error enrolling students");
+      }
     });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
